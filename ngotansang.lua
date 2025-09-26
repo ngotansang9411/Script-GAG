@@ -1,34 +1,340 @@
-local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
-local function base64Decode(data)
-    data = string.gsub(data, '[^'..b..'=]', '')
-    return (data:gsub('.', function(x)
-        if (x == '=') then return '' end
-        local r,f='', (b:find(x)-1)
-        for i = 6, 1, -1 do
-            r = r .. (f % 2 ^ i - f % 2 ^ (i - 1) > 0 and '1' or '0')
-        end
-        return r
-    end):gsub('%d%d%d?%d?%d?%d?%d?%d?', function(x)
-        if (#x ~= 8) then return '' end
-        local c = 0
-        for i = 1, 8 do
-            c = c + (x:sub(i,i) == '1' and 2^(8-i) or 0)
-        end
-        return string.char(c)
-    end))
-end
+local SanguiList1 = {}
+SanguiList1.__index = SanguiList1
 
-local function runBase64(encoded)
-    local decoded = base64Decode(encoded)
-    print("[Base64 Decoded]:", decoded) 
-    local func = loadstring(decoded)  
-    if func then
-        func() 
-    else
-        warn("Không thể load code từ Base64!")
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- UI khởi tạo
+function SanguiList1:CreateWindow(titleText)
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "SanguiList1"
+    gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    gui.ResetOnSpawn = false
+
+    -- Logo toggle
+    local logo = Instance.new("ImageButton")
+    logo.Name = "Logo"
+    logo.Size = UDim2.new(0, 50, 0, 50)
+    logo.Position = UDim2.new(0, 10, 0, 10)
+    logo.Image = "rbxassetid://3926305904" -- icon default
+    logo.BackgroundTransparency = 1
+    logo.Parent = gui
+
+    -- Main Frame
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 500, 0, 350)
+    mainFrame.Position = UDim2.new(0.5, -250, 0.5, -175)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+    mainFrame.Visible = true
+    mainFrame.Parent = gui
+
+    -- TopBar
+    local topBar = Instance.new("Frame")
+    topBar.Size = UDim2.new(1, 0, 0, 30)
+    topBar.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+    topBar.Parent = mainFrame
+
+    local title = Instance.new("TextLabel")
+    title.Text = titleText or "SanguiList1"
+    title.Size = UDim2.new(0, 200, 1, 0)
+    title.Position = UDim2.new(0, 5, 0, 0)
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 14
+    title.Parent = topBar
+
+    -- Nút điều khiển
+    local function createBtn(txt, posX)
+        local btn = Instance.new("TextButton")
+        btn.Text = txt
+        btn.Size = UDim2.new(0, 30, 1, 0)
+        btn.Position = UDim2.new(1, posX, 0, 0)
+        btn.BackgroundColor3 = Color3.fromRGB(100,100,100)
+        btn.TextColor3 = Color3.fromRGB(255,255,255)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 14
+        btn.Parent = topBar
+        return btn
     end
+
+    local closeBtn = createBtn("×", -30)
+    local maximizeBtn = createBtn("÷", -60)
+    local minimizeBtn = createBtn("-", -90)
+
+    -- Tab list
+    local tabList = Instance.new("ScrollingFrame")
+    tabList.Size = UDim2.new(0, 120, 1, -30)
+    tabList.Position = UDim2.new(0, 0, 0, 30)
+    tabList.CanvasSize = UDim2.new(0, 0, 2, 0)
+    tabList.ScrollBarThickness = 4
+    tabList.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
+    tabList.Parent = mainFrame
+
+    -- Content Frame
+    local content = Instance.new("Frame")
+    content.Size = UDim2.new(1, -120, 1, -30)
+    content.Position = UDim2.new(0, 120, 0, 30)
+    content.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    content.Parent = mainFrame
+
+    -- Chức năng logo toggle
+    logo.MouseButton1Click:Connect(function()
+        mainFrame.Visible = not mainFrame.Visible
+    end)
+
+    -- Nút X = xóa
+    closeBtn.MouseButton1Click:Connect(function()
+        gui:Destroy()
+    end)
+
+    -- Nút - = ẩn menu
+    minimizeBtn.MouseButton1Click:Connect(function()
+        mainFrame.Visible = false
+    end)
+
+    -- Nút ÷ = phóng to/thu nhỏ
+    local maximized = false
+    maximizeBtn.MouseButton1Click:Connect(function()
+        maximized = not maximized
+        if maximized then
+            mainFrame.Size = UDim2.new(0, 700, 0, 500)
+        else
+            mainFrame.Size = UDim2.new(0, 500, 0, 350)
+        end
+    end)
+
+    -- API quản lý tab
+    local WindowAPI = {}
+    WindowAPI.Content = content
+    WindowAPI.TabList = tabList
+
+    function WindowAPI:CreateTab(name)
+        local tabBtn = Instance.new("TextButton")
+        tabBtn.Text = name
+        tabBtn.Size = UDim2.new(1, 0, 0, 30)
+        tabBtn.BackgroundColor3 = Color3.fromRGB(90, 90, 90)
+        tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        tabBtn.Font = Enum.Font.Gotham
+        tabBtn.TextSize = 14
+        tabBtn.Parent = tabList
+
+        local tabFrame = Instance.new("ScrollingFrame")
+        tabFrame.Size = UDim2.new(1, 0, 1, 0)
+        tabFrame.Visible = false
+        tabFrame.BackgroundTransparency = 1
+        tabFrame.ScrollBarThickness = 6
+        tabFrame.Parent = content
+
+        local elementY = 10
+        local function newElement(obj)
+            obj.Position = UDim2.new(0, 10, 0, elementY)
+            obj.Parent = tabFrame
+            elementY = elementY + obj.Size.Y.Offset + 10
+            tabFrame.CanvasSize = UDim2.new(0, 0, 0, elementY)
+        end
+
+        local TabAPI = {}
+
+        function TabAPI:Show()
+            for _, frame in pairs(content:GetChildren()) do
+                if frame:IsA("ScrollingFrame") then
+                    frame.Visible = false
+                end
+            end
+            tabFrame.Visible = true
+        end
+
+        function TabAPI:CreateLabel(text)
+            local lbl = Instance.new("TextLabel")
+            lbl.Text = text
+            lbl.Size = UDim2.new(0, 250, 0, 25)
+            lbl.BackgroundTransparency = 1
+            lbl.TextColor3 = Color3.fromRGB(255,255,255)
+            lbl.Font = Enum.Font.Gotham
+            lbl.TextSize = 14
+            newElement(lbl)
+        end
+
+        function TabAPI:CreateButton(text, callback)
+            local btn = Instance.new("TextButton")
+            btn.Text = text
+            btn.Size = UDim2.new(0, 250, 0, 30)
+            btn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+            btn.TextColor3 = Color3.fromRGB(255,255,255)
+            btn.Font = Enum.Font.Gotham
+            btn.TextSize = 14
+            newElement(btn)
+            btn.MouseButton1Click:Connect(function()
+                pcall(callback)
+            end)
+        end
+
+        function TabAPI:CreateToggle(text, default, callback)
+            local state = default or false
+            local btn = Instance.new("TextButton")
+            btn.Text = text .. ": " .. tostring(state)
+            btn.Size = UDim2.new(0, 250, 0, 30)
+            btn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+            btn.TextColor3 = Color3.fromRGB(255,255,255)
+            btn.Font = Enum.Font.Gotham
+            btn.TextSize = 14
+            newElement(btn)
+
+            btn.MouseButton1Click:Connect(function()
+                state = not state
+                btn.Text = text .. ": " .. tostring(state)
+                pcall(callback, state)
+            end)
+        end
+
+        function TabAPI:CreateSlider(text, min, max, default, callback)
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(0, 250, 0, 40)
+            frame.BackgroundColor3 = Color3.fromRGB(80,80,80)
+            newElement(frame)
+
+            local lbl = Instance.new("TextLabel", frame)
+            lbl.Text = text .. ": " .. tostring(default)
+            lbl.Size = UDim2.new(1, 0, 0.5, 0)
+            lbl.BackgroundTransparency = 1
+            lbl.TextColor3 = Color3.fromRGB(255,255,255)
+            lbl.Font = Enum.Font.Gotham
+            lbl.TextSize = 14
+
+            local slider = Instance.new("TextButton", frame)
+            slider.Size = UDim2.new(1, -20, 0, 15)
+            slider.Position = UDim2.new(0, 10, 1, -20)
+            slider.BackgroundColor3 = Color3.fromRGB(120,120,120)
+            slider.Text = ""
+
+            local val = default or min
+            lbl.Text = text .. ": " .. val
+
+            slider.MouseButton1Down:Connect(function()
+                local moveConn
+                moveConn = UIS.InputChanged:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseMovement then
+                        local rel = math.clamp((input.Position.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X, 0, 1)
+                        val = math.floor(min + (max - min) * rel)
+                        lbl.Text = text .. ": " .. val
+                        pcall(callback, val)
+                    end
+                end)
+                UIS.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        if moveConn then moveConn:Disconnect() end
+                    end
+                end)
+            end)
+        end
+
+        function TabAPI:CreateDropdown(text, options, callback)
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(0, 250, 0, 30)
+            frame.BackgroundColor3 = Color3.fromRGB(80,80,80)
+            newElement(frame)
+
+            local btn = Instance.new("TextButton", frame)
+            btn.Size = UDim2.new(1, 0, 1, 0)
+            btn.Text = text .. " ▼"
+            btn.TextColor3 = Color3.fromRGB(255,255,255)
+            btn.BackgroundColor3 = Color3.fromRGB(100,100,100)
+            btn.Font = Enum.Font.Gotham
+            btn.TextSize = 14
+
+            local listFrame = Instance.new("Frame", frame)
+            listFrame.Size = UDim2.new(1, 0, 0, #options * 25)
+            listFrame.Position = UDim2.new(0, 0, 1, 0)
+            listFrame.BackgroundColor3 = Color3.fromRGB(60,60,60)
+            listFrame.Visible = false
+
+            for i, opt in ipairs(options) do
+                local optBtn = Instance.new("TextButton")
+                optBtn.Text = opt
+                optBtn.Size = UDim2.new(1, 0, 0, 25)
+                optBtn.Position = UDim2.new(0, 0, 0, (i-1)*25)
+                optBtn.TextColor3 = Color3.fromRGB(255,255,255)
+                optBtn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+                optBtn.Parent = listFrame
+                optBtn.MouseButton1Click:Connect(function()
+                    btn.Text = text .. ": " .. opt
+                    listFrame.Visible = false
+                    pcall(callback, opt)
+                end)
+            end
+
+            btn.MouseButton1Click:Connect(function()
+                listFrame.Visible = not listFrame.Visible
+            end)
+        end
+
+        function TabAPI:CreateInput(text, callback)
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(0, 250, 0, 30)
+            frame.BackgroundColor3 = Color3.fromRGB(80,80,80)
+            newElement(frame)
+
+            local box = Instance.new("TextBox", frame)
+            box.Size = UDim2.new(1, -10, 1, 0)
+            box.Position = UDim2.new(0, 5, 0, 0)
+            box.PlaceholderText = text
+            box.Text = ""
+            box.TextColor3 = Color3.fromRGB(255,255,255)
+            box.BackgroundColor3 = Color3.fromRGB(100,100,100)
+            box.Font = Enum.Font.Gotham
+            box.TextSize = 14
+
+            box.FocusLost:Connect(function(enter)
+                if enter then
+                    pcall(callback, box.Text)
+                end
+            end)
+        end
+
+        function TabAPI:CreateKeybind(text, defaultKey, callback)
+            local btn = Instance.new("TextButton")
+            btn.Text = text .. ": " .. (defaultKey and defaultKey.Name or "None")
+            btn.Size = UDim2.new(0, 250, 0, 30)
+            btn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+            btn.TextColor3 = Color3.fromRGB(255,255,255)
+            btn.Font = Enum.Font.Gotham
+            btn.TextSize = 14
+            newElement(btn)
+
+            local key = defaultKey
+            btn.MouseButton1Click:Connect(function()
+                btn.Text = text .. ": ..."
+                local conn
+                conn = UIS.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.Keyboard then
+                        key = input.KeyCode
+                        btn.Text = text .. ": " .. key.Name
+                        pcall(callback, key)
+                        conn:Disconnect()
+                    end
+                end)
+            end)
+
+            UIS.InputBegan:Connect(function(input, processed)
+                if not processed and key and input.KeyCode == key then
+                    pcall(callback, key)
+                end
+            end)
+        end
+
+        tabBtn.MouseButton1Click:Connect(function()
+            TabAPI:Show()
+        end)
+
+        return TabAPI
+    end
+
+    return WindowAPI
 end
 
-local encodedCode = "bG9jYWwgYiA9ICdBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWmFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6MDEyMzQ1Njc4OSsvJw0KDQpsb2NhbCBmdW5jdGlvbiBiYXNlNjREZWNvZGUoZGF0YSkNCiAgICBkYXRhID0gc3RyaW5nLmdzdWIoZGF0YSwgJ1teJy4uYi4uJz1dJywgJycpDQogICAgcmV0dXJuIChkYXRhOmdzdWIoJy4nLCBmdW5jdGlvbih4KQ0KICAgICAgICBpZiAoeCA9PSAnPScpIHRoZW4gcmV0dXJuICcnIGVuZA0KICAgICAgICBsb2NhbCByLGY9JycsIChiOmZpbmQoeCktMSkNCiAgICAgICAgZm9yIGkgPSA2LCAxLCAtMSBkbw0KICAgICAgICAgICAgciA9IHIgLi4gKGYgJSAyIF4gaSAtIGYgJSAyIF4gKGkgLSAxKSA+IDAgYW5kICcxJyBvciAnMCcpDQogICAgICAgIGVuZA0KICAgICAgICByZXR1cm4gcg0KICAgIGVuZCk6Z3N1YignJWQlZCVkPyVkPyVkPyVkPyVkPyVkPycsIGZ1bmN0aW9uKHgpDQogICAgICAgIGlmICgjeCB+PSA4KSB0aGVuIHJldHVybiAnJyBlbmQNCiAgICAgICAgbG9jYWwgYyA9IDANCiAgICAgICAgZm9yIGkgPSAxLCA4IGRvDQogICAgICAgICAgICBjID0gYyArICh4OnN1YihpLGkpID09ICcxJyBhbmQgMl4oOC1pKSBvciAwKQ0KICAgICAgICBlbmQNCiAgICAgICAgcmV0dXJuIHN0cmluZy5jaGFyKGMpDQogICAgZW5kKSkNCmVuZA0KDQpsb2NhbCBmdW5jdGlvbiBydW5CYXNlNjQoZW5jb2RlZCkNCiAgICBsb2NhbCBkZWNvZGVkID0gYmFzZTY0RGVjb2RlKGVuY29kZWQpDQogICAgcHJpbnQoIltCYXNlNjQgRGVjb2RlZF06IiwgZGVjb2RlZCkgDQogICAgbG9jYWwgZnVuYyA9IGxvYWRzdHJpbmcoZGVjb2RlZCkgIA0KICAgIGlmIGZ1bmMgdGhlbg0KICAgICAgICBmdW5jKCkgDQogICAgZWxzZQ0KICAgICAgICB3YXJuKCJLaMO0bmcgdGjhu4MgbG9hZCBjb2RlIHThu6sgQmFzZTY0ISIpDQogICAgZW5kDQplbmQNCg0KbG9jYWwgZW5jb2RlZENvZGUgPSAiRFFwc2IyTmhiQ0J3YkdGNVpYSWdQU0JuWVcxbExsQnNZWGxsY25NdVRHOWpZV3hRYkdGNVpYSU5DbXh2WTJGc0lIQm5JRDBnY0d4aGVXVnlPbGRoYVhSR2IzSkRhR2xzWkNnaVVHeGhlV1Z5UjNWcElpa05DbXh2WTJGc0lGUjNaV1Z1VTJWeWRtbGpaU0E5SUdkaGJXVTZSMlYwVTJWeWRtbGpaU2dpVkhkbFpXNVRaWEoyYVdObElpa05DZzBLYkc5allXd2diMnhrSUQwZ2NHYzZSbWx1WkVacGNuTjBRMmhwYkdRb0lreHZZV1JwYm1kVlNTSXBEUXBwWmlCdmJHUWdkR2hsYmlCdmJHUTZSR1Z6ZEhKdmVTZ3BJR1Z1WkEwS0RRcHNiMk5oYkNCbmRXa2dQU0JKYm5OMFlXNWpaUzV1Wlhjb0lsTmpjbVZsYmtkMWFTSXNJSEJuS1EwS1ozVnBMazVoYldVZ1BTQWlURzloWkdsdVoxVkpJZzBLWjNWcExrbG5ibTl5WlVkMWFVbHVjMlYwSUQwZ2RISjFaUTBLWjNWcExsSmxjMlYwVDI1VGNHRjNiaUE5SUdaaGJITmxEUW9OQ214dlkyRnNJR0puSUQwZ1NXNXpkR0Z1WTJVdWJtVjNLQ0pKYldGblpVeGhZbVZzSWl3Z1ozVnBLUTBLWW1jdVUybDZaU0E5SUZWRWFXMHlMbVp5YjIxVFkyRnNaU2d4TERFcERRcGlaeTVKYldGblpTQTlJQ0p5WW5oaGMzTmxkR2xrT2k4dk56TTNNREUxT1RRMU1EQXpNVGNpRFFwaVp5NVRZMkZzWlZSNWNHVWdQU0JGYm5WdExsTmpZV3hsVkhsd1pTNURjbTl3RFFwaVp5NUNZV05yWjNKdmRXNWtWSEpoYm5Od1lYSmxibU41SUQwZ01RMEtEUXBzYjJOaGJDQnZkbVZ5YkdGNUlEMGdTVzV6ZEdGdVkyVXVibVYzS0NKR2NtRnRaU0lzSUdkMWFTa05DbTkyWlhKc1lYa3VVMmw2WlNBOUlGVkVhVzB5TG1aeWIyMVRZMkZzWlNneExERXBEUXB2ZG1WeWJHRjVMa0poWTJ0bmNtOTFibVJEYjJ4dmNqTWdQU0JEYjJ4dmNqTXVibVYzS0RBc01Dd3dLUTBLYjNabGNteGhlUzVDWVdOclozSnZkVzVrVkhKaGJuTndZWEpsYm1ONUlEMGdNQzR6TlEwS0RRcHNiMk5oYkNCamIyNTBZV2x1WlhJZ1BTQkpibk4wWVc1alpTNXVaWGNvSWtaeVlXMWxJaXdnWjNWcEtRMEtZMjl1ZEdGcGJtVnlMa0Z1WTJodmNsQnZhVzUwSUQwZ1ZtVmpkRzl5TWk1dVpYY29NQzQxTERBdU5Ta05DbU52Ym5SaGFXNWxjaTVRYjNOcGRHbHZiaUE5SUZWRWFXMHlMbVp5YjIxVFkyRnNaU2d3TGpVc01DNDFLUTBLWTI5dWRHRnBibVZ5TGxOcGVtVWdQU0JWUkdsdE1pNW1jbTl0VTJOaGJHVW9NQzQ0TERBdU16VXBEUXBqYjI1MFlXbHVaWEl1UW1GamEyZHliM1Z1WkZSeVlXNXpjR0Z5Wlc1amVTQTlJREVOQ2cwS2JHOWpZV3dnYkdGNWIzVjBJRDBnU1c1emRHRnVZMlV1Ym1WM0tDSlZTVXhwYzNSTVlYbHZkWFFpTENCamIyNTBZV2x1WlhJcERRcHNZWGx2ZFhRdVJtbHNiRVJwY21WamRHbHZiaUE5SUVWdWRXMHVSbWxzYkVScGNtVmpkR2x2Ymk1V1pYSjBhV05oYkEwS2JHRjViM1YwTGtodmNtbDZiMjUwWVd4QmJHbG5ibTFsYm5RZ1BTQkZiblZ0TGtodmNtbDZiMjUwWVd4QmJHbG5ibTFsYm5RdVEyVnVkR1Z5RFFwc1lYbHZkWFF1Vm1WeWRHbGpZV3hCYkdsbmJtMWxiblFnUFNCRmJuVnRMbFpsY25ScFkyRnNRV3hwWjI1dFpXNTBMa05sYm5SbGNnMEtiR0Y1YjNWMExsQmhaR1JwYm1jZ1BTQlZSR2x0TG01bGR5Z3dMREV3S1EwS0RRcHNiMk5oYkNCbWRXNWpkR2x2YmlCeVlXbHVZbTkzS0c5aWFpa05DZ2xzYjJOaGJDQm5JRDBnU1c1emRHRnVZMlV1Ym1WM0tDSlZTVWR5WVdScFpXNTBJaXdnYjJKcUtRMEtDV2N1UTI5c2IzSWdQU0JEYjJ4dmNsTmxjWFZsYm1ObExtNWxkM3NOQ2drSlEyOXNiM0pUWlhGMVpXNWpaVXRsZVhCdmFXNTBMbTVsZHlnd0xDQkRiMnh2Y2pNdVpuSnZiVkpIUWlneU5UVXNNQ3d3S1Nrc0RRb0pDVU52Ykc5eVUyVnhkV1Z1WTJWTFpYbHdiMmx1ZEM1dVpYY29NQzR4Tml3Z1EyOXNiM0l6TG1aeWIyMVNSMElvTWpVMUxERXlOeXd3S1Nrc0RRb0pDVU52Ykc5eVUyVnhkV1Z1WTJWTFpYbHdiMmx1ZEM1dVpYY29NQzR6TXl3Z1EyOXNiM0l6TG1aeWIyMVNSMElvTWpVMUxESTFOU3d3S1Nrc0RRb0pDVU52Ykc5eVUyVnhkV1Z1WTJWTFpYbHdiMmx1ZEM1dVpYY29NQzQxTENCRGIyeHZjak11Wm5KdmJWSkhRaWd3TERJMU5Td3dLU2tzRFFvSkNVTnZiRzl5VTJWeGRXVnVZMlZMWlhsd2IybHVkQzV1Wlhjb01DNDJOaXdnUTI5c2IzSXpMbVp5YjIxU1IwSW9NQ3d5TlRVc01qVTFLU2tzRFFvSkNVTnZiRzl5VTJWeGRXVnVZMlZMWlhsd2IybHVkQzV1Wlhjb01DNDRNeXdnUTI5c2IzSXpMbVp5YjIxU1IwSW9NQ3d3TERJMU5Ta3BMQTBLQ1FsRGIyeHZjbE5sY1hWbGJtTmxTMlY1Y0c5cGJuUXVibVYzS0RFc0lFTnZiRzl5TXk1bWNtOXRVa2RDS0RFek9Td3dMREkxTlNrcExBMEtDWDBOQ2dseVpYUjFjbTRnWncwS1pXNWtEUW9OQ214dlkyRnNJSFJwZEd4bElEMGdTVzV6ZEdGdVkyVXVibVYzS0NKVVpYaDBUR0ZpWld3aUxDQmpiMjUwWVdsdVpYSXBEUXAwYVhSc1pTNVVaWGgwSUQwZ0lrNUh3NVFnVk9HNnBFNGdVMEZPUnlJTkNuUnBkR3hsTGxOcGVtVWdQU0JWUkdsdE1pNW1jbTl0VTJOaGJHVW9NU3d3TGpJMUtRMEtkR2wwYkdVdVZHVjRkRk5qWVd4bFpDQTlJSFJ5ZFdVTkNuUnBkR3hsTGtadmJuUWdQU0JGYm5WdExrWnZiblF1UjI5MGFHRnRRbTlzWkEwS2RHbDBiR1V1UW1GamEyZHliM1Z1WkZSeVlXNXpjR0Z5Wlc1amVTQTlJREVOQ2tsdWMzUmhibU5sTG01bGR5Z2lWVWxUZEhKdmEyVWlMQ0IwYVhSc1pTa3VWR2hwWTJ0dVpYTnpJRDBnTWcwS2JHOWpZV3dnZEdkeVlXUWdQU0J5WVdsdVltOTNLSFJwZEd4bEtRMEtEUXBzYjJOaGJDQnNiMkZrYVc1blZHVjRkQ0E5SUVsdWMzUmhibU5sTG01bGR5Z2lWR1Y0ZEV4aFltVnNJaXdnWTI5dWRHRnBibVZ5S1EwS2JHOWhaR2x1WjFSbGVIUXVWR1Y0ZENBOUlDSk1iMkZrYVc1bklEQWxJZzBLYkc5aFpHbHVaMVJsZUhRdVUybDZaU0E5SUZWRWFXMHlMbVp5YjIxVFkyRnNaU2d3TGpZc01DNHlLUTBLYkc5aFpHbHVaMVJsZUhRdVZHVjRkRk5qWVd4bFpDQTlJSFJ5ZFdVTkNteHZZV1JwYm1kVVpYaDBMa1p2Ym5RZ1BTQkZiblZ0TGtadmJuUXVSMjkwYUdGdFUyVnRhV0p2YkdRTkNteHZZV1JwYm1kVVpYaDBMa0poWTJ0bmNtOTFibVJVY21GdWMzQmhjbVZ1WTNrZ1BTQXhEUXBKYm5OMFlXNWpaUzV1Wlhjb0lsVkpVM1J5YjJ0bElpd2diRzloWkdsdVoxUmxlSFFwTGxSb2FXTnJibVZ6Y3lBOUlESU5DbXh2WTJGc0lHeG5jbUZrSUQwZ2NtRnBibUp2ZHloc2IyRmthVzVuVkdWNGRDa05DZzBLYkc5allXd2dZbUZ5VDNWMFpYSWdQU0JKYm5OMFlXNWpaUzV1Wlhjb0lrWnlZVzFsSWl3Z1kyOXVkR0ZwYm1WeUtRMEtZbUZ5VDNWMFpYSXVVMmw2WlNBOUlGVkVhVzB5TG1aeWIyMVRZMkZzWlNnd0xqY3NNQzR3T0NrTkNtSmhjazkxZEdWeUxrSmhZMnRuY205MWJtUkRiMnh2Y2pNZ1BTQkRiMnh2Y2pNdVpuSnZiVkpIUWlnek1Dd3pNQ3d6TUNrTkNtSmhjazkxZEdWeUxrSmhZMnRuY205MWJtUlVjbUZ1YzNCaGNtVnVZM2tnUFNBd0xqSTFEUXBKYm5OMFlXNWpaUzV1Wlhjb0lsVkpRMjl5Ym1WeUlpd2dZbUZ5VDNWMFpYSXBMa052Y201bGNsSmhaR2wxY3lBOUlGVkVhVzB1Ym1WM0tEQXNNVFFwRFFvTkNteHZZMkZzSUdKaGNrWnBiR3dnUFNCSmJuTjBZVzVqWlM1dVpYY29Ja1p5WVcxbElpd2dZbUZ5VDNWMFpYSXBEUXBpWVhKR2FXeHNMbE5wZW1VZ1BTQlZSR2x0TWk1bWNtOXRVMk5oYkdVb01Dd3hLUTBLWW1GeVJtbHNiQzVDWVdOclozSnZkVzVrUTI5c2IzSXpJRDBnUTI5c2IzSXpMbTVsZHlneExERXNNU2tOQ21KaGNrWnBiR3d1UW05eVpHVnlVMmw2WlZCcGVHVnNJRDBnTUEwS1NXNXpkR0Z1WTJVdWJtVjNLQ0pWU1VOdmNtNWxjaUlzSUdKaGNrWnBiR3dwTGtOdmNtNWxjbEpoWkdsMWN5QTlJRlZFYVcwdWJtVjNLREFzTVRRcERRcHNiMk5oYkNCaVozSmhaQ0E5SUhKaGFXNWliM2NvWW1GeVJtbHNiQ2tOQ2cwS2JHOWpZV3dnWm5WdVkzUnBiMjRnWVc1cGJXRjBaU2huTEdRcERRb0pkR0Z6YXk1emNHRjNiaWhtZFc1amRHbHZiaWdwRFFvSkNYZG9hV3hsSUdjZ1lXNWtJR2N1VUdGeVpXNTBJR1J2RFFvSkNRbG5MazltWm5ObGRDQTlJRlpsWTNSdmNqSXVibVYzS0RBc01Da05DZ2tKQ1d4dlkyRnNJSFIzSUQwZ1ZIZGxaVzVUWlhKMmFXTmxPa055WldGMFpTaG5MQ0JVZDJWbGJrbHVabTh1Ym1WM0tHUXNJRVZ1ZFcwdVJXRnphVzVuVTNSNWJHVXVUR2x1WldGeUtTd2dlMDltWm5ObGRDQTlJRlpsWTNSdmNqSXVibVYzS0RFc01DbDlLUTBLQ1FrSmRIYzZVR3hoZVNncERRb0pDUWwwZHk1RGIyMXdiR1YwWldRNlYyRnBkQ2dwRFFvSkNXVnVaQTBLQ1dWdVpDa05DbVZ1WkEwS1lXNXBiV0YwWlNoMFozSmhaQ3cwS1EwS1lXNXBiV0YwWlNoc1ozSmhaQ3d6S1EwS1lXNXBiV0YwWlNoaVozSmhaQ3d5TGpVcERRb05DbXh2WTJGc0lHWjFibU4wYVc5dUlITmxkRkJ5YjJkeVpYTnpLSEFwRFFvSmNDQTlJRzFoZEdndVkyeGhiWEFvYldGMGFDNW1iRzl2Y2lod0t6QXVOU2tzTUN3eE1EQXBEUW9KYkc5aFpHbHVaMVJsZUhRdVZHVjRkQ0E5SUNKTWIyRmthVzVuSUNJdUxuQXVMaUlsSWcwS0NXSmhja1pwYkd3NlZIZGxaVzVUYVhwbEtGVkVhVzB5TG1aeWIyMVRZMkZzWlNod0x6RXdNQ3d4S1N3Z1JXNTFiUzVGWVhOcGJtZEVhWEpsWTNScGIyNHVUM1YwTENCRmJuVnRMa1ZoYzJsdVoxTjBlV3hsTGxGMVlXUXNJREF1TWl3Z2RISjFaU2tOQ21WdVpBMEtEUXAwWVhOckxuTndZWGR1S0daMWJtTjBhVzl1S0NrTkNnbG1iM0lnYVQwd0xERXdNQ0JrYncwS0NRbHpaWFJRY205bmNtVnpjeWhwS1EwS0NRbDBZWE5yTG5kaGFYUW9NQzR3TXlrTkNnbGxibVFOQ2dsVWQyVmxibE5sY25acFkyVTZRM0psWVhSbEtHOTJaWEpzWVhrc0lGUjNaV1Z1U1c1bWJ5NXVaWGNvTUM0MEtTd2dlMEpoWTJ0bmNtOTFibVJVY21GdWMzQmhjbVZ1WTNrOU1YMHBPbEJzWVhrb0tRMEtDWFJoYzJzdWQyRnBkQ2d3TGpRcERRb0paM1ZwT2tSbGMzUnliM2tvS1EwS0RRb0piRzloWkV0bGVWVkpLQ2tOQ21WdVpDa05DZzBLWm5WdVkzUnBiMjRnYkc5aFpFdGxlVlZKS0NrTkNnbHNiMk5oYkNCelkzSmxaVzVIZFdrZ1BTQkpibk4wWVc1alpTNXVaWGNvSWxOamNtVmxia2QxYVNJc0lIQm5LUTBLQ1hOamNtVmxia2QxYVM1T1lXMWxJRDBnSWt0bGVWTjVjM1JsYlZWSklnMEtDWE5qY21WbGJrZDFhUzVhU1c1a1pYaENaV2hoZG1sdmNpQTlJRVZ1ZFcwdVdrbHVaR1Y0UW1Wb1lYWnBiM0l1VTJsaWJHbHVadzBLQ1hOamNtVmxia2QxYVM1SloyNXZjbVZIZFdsSmJuTmxkQ0E5SUhSeWRXVU5DZzBLQ1d4dlkyRnNJRzFoYVc1R2NtRnRaU0E5SUVsdWMzUmhibU5sTG01bGR5Z2lSbkpoYldVaUxDQnpZM0psWlc1SGRXa3BEUW9KYldGcGJrWnlZVzFsTGxOcGVtVWdQU0JWUkdsdE1pNXVaWGNvTUN3Z05EQXdMQ0F3TENBeU5UQXBEUW9KYldGcGJrWnlZVzFsTGxCdmMybDBhVzl1SUQwZ1ZVUnBiVEl1Ym1WM0tEQXVOU3dnTFRJd01Dd2dNQzQxTENBdE1USTFLUTBLQ1cxaGFXNUdjbUZ0WlM1Q1lXTnJaM0p2ZFc1a1EyOXNiM0l6SUQwZ1EyOXNiM0l6TG1aeWIyMVNSMElvTWpVc0lESTFMQ0F5TlNrTkNnbHRZV2x1Um5KaGJXVXVRbTl5WkdWeVUybDZaVkJwZUdWc0lEMGdNQTBLQ1cxaGFXNUdjbUZ0WlM1Q1lXTnJaM0p2ZFc1a1ZISmhibk53WVhKbGJtTjVJRDBnTVEwS0NVbHVjM1JoYm1ObExtNWxkeWdpVlVsRGIzSnVaWElpTENCdFlXbHVSbkpoYldVcExrTnZjbTVsY2xKaFpHbDFjeUE5SUZWRWFXMHVibVYzS0RBc0lERTFLUTBLRFFvSmJHOWpZV3dnZEdsMGJHVWdQU0JKYm5OMFlXNWpaUzV1Wlhjb0lsUmxlSFJNWVdKbGJDSXNJRzFoYVc1R2NtRnRaU2tOQ2dsMGFYUnNaUzVUYVhwbElEMGdWVVJwYlRJdWJtVjNLREVzSURBc0lEQXNJRFV3S1EwS0NYUnBkR3hsTGtKaFkydG5jbTkxYm1SVWNtRnVjM0JoY21WdVkza2dQU0F4RFFvSmRHbDBiR1V1VkdWNGRDQTlJQ0pUUVU1SElFdEZXU0lOQ2dsMGFYUnNaUzVHYjI1MElEMGdSVzUxYlM1R2IyNTBMa2R2ZEdoaGJVSnZiR1FOQ2dsMGFYUnNaUzVVWlhoMFUybDZaU0E5SURJNERRb0pkR2wwYkdVdVZHVjRkRlJ5WVc1emNHRnlaVzVqZVNBOUlERU5DZzBLQ1hSaGMyc3VjM0JoZDI0b1puVnVZM1JwYjI0b0tRMEtDUWwzYUdsc1pTQjBZWE5yTG5kaGFYUW9LU0JrYncwS0NRa0pabTl5SUdrZ1BTQXdMQ0F4TENBd0xqQXhJR1J2RFFvSkNRa0pkR2wwYkdVdVZHVjRkRU52Ykc5eU15QTlJRU52Ykc5eU15NW1jbTl0U0ZOV0tHa3NJREVzSURFcERRb0pDUWtKZEdGemF5NTNZV2wwS0RBdU1EVXBEUW9KQ1FsbGJtUU5DZ2tKWlc1a0RRb0paVzVrS1EwS0RRb0piRzlqWVd3Z2RHVjRkRUp2ZUNBOUlFbHVjM1JoYm1ObExtNWxkeWdpVkdWNGRFSnZlQ0lzSUcxaGFXNUdjbUZ0WlNrTkNnbDBaWGgwUW05NExsTnBlbVVnUFNCVlJHbHRNaTV1Wlhjb01DNDRMQ0F3TENBd0xDQTBNQ2tOQ2dsMFpYaDBRbTk0TGxCdmMybDBhVzl1SUQwZ1ZVUnBiVEl1Ym1WM0tEQXVNU3dnTUN3Z01DNDBOU3dnTUNrTkNnbDBaWGgwUW05NExsQnNZV05sYUc5c1pHVnlWR1Y0ZENBOUlDSk9hT0c2clhBZ2EyVjVJSGJEb0c4Z3hKSERvbmt1TGk0aURRb0pkR1Y0ZEVKdmVDNVVaWGgwSUQwZ0lpSU5DZ2wwWlhoMFFtOTRMa1p2Ym5RZ1BTQkZiblZ0TGtadmJuUXVSMjkwYUdGdERRb0pkR1Y0ZEVKdmVDNVVaWGgwVTJsNlpTQTlJREl3RFFvSmRHVjRkRUp2ZUM1Q1lXTnJaM0p2ZFc1a1EyOXNiM0l6SUQwZ1EyOXNiM0l6TG1aeWIyMVNSMElvTkRBc0lEUXdMQ0EwTUNrTkNnbDBaWGgwUW05NExsUmxlSFJEYjJ4dmNqTWdQU0JEYjJ4dmNqTXVabkp2YlZKSFFpZ3lOVFVzSURJMU5Td2dNalUxS1EwS0NYUmxlSFJDYjNndVZHVjRkRlJ5WVc1emNHRnlaVzVqZVNBOUlERU5DZ2wwWlhoMFFtOTRMa0poWTJ0bmNtOTFibVJVY21GdWMzQmhjbVZ1WTNrZ1BTQXhEUW9KU1c1emRHRnVZMlV1Ym1WM0tDSlZTVU52Y201bGNpSXNJSFJsZUhSQ2IzZ3BMa052Y201bGNsSmhaR2wxY3lBOUlGVkVhVzB1Ym1WM0tEQXNJREV3S1EwS0RRb0piRzlqWVd3Z1luVjBkRzl1SUQwZ1NXNXpkR0Z1WTJVdWJtVjNLQ0pVWlhoMFFuVjBkRzl1SWl3Z2JXRnBia1p5WVcxbEtRMEtDV0oxZEhSdmJpNVRhWHBsSUQwZ1ZVUnBiVEl1Ym1WM0tEQXVOU3dnTUN3Z01Dd2dOREFwRFFvSlluVjBkRzl1TGxCdmMybDBhVzl1SUQwZ1ZVUnBiVEl1Ym1WM0tEQXVNalVzSURBc0lEQXVOeXdnTUNrTkNnbGlkWFIwYjI0dVZHVjRkQ0E5SUNKWXc2RmpJRTVvNGJxdGJpSU5DZ2xpZFhSMGIyNHVSbTl1ZENBOUlFVnVkVzB1Um05dWRDNUhiM1JvWVcxQ2IyeGtEUW9KWW5WMGRHOXVMbFJsZUhSVGFYcGxJRDBnTWpJTkNnbGlkWFIwYjI0dVFtRmphMmR5YjNWdVpFTnZiRzl5TXlBOUlFTnZiRzl5TXk1bWNtOXRVa2RDS0RZd0xDQXhNakFzSURJeU1Da05DZ2xpZFhSMGIyNHVWR1Y0ZEVOdmJHOXlNeUE5SUVOdmJHOXlNeTVtY205dFVrZENLREkxTlN3Z01qVTFMQ0F5TlRVcERRb0pZblYwZEc5dUxsUmxlSFJVY21GdWMzQmhjbVZ1WTNrZ1BTQXhEUW9KWW5WMGRHOXVMa0poWTJ0bmNtOTFibVJVY21GdWMzQmhjbVZ1WTNrZ1BTQXhEUW9KU1c1emRHRnVZMlV1Ym1WM0tDSlZTVU52Y201bGNpSXNJR0oxZEhSdmJpa3VRMjl5Ym1WeVVtRmthWFZ6SUQwZ1ZVUnBiUzV1Wlhjb01Dd2dNVEFwRFFvTkNnbHRZV2x1Um5KaGJXVXVVMmw2WlNBOUlGVkVhVzB5TG01bGR5Z3dMQ0F3TENBd0xDQXdLUTBLQ1cxaGFXNUdjbUZ0WlM1UWIzTnBkR2x2YmlBOUlGVkVhVzB5TG01bGR5Z3dMalVzSURBc0lEQXVOU3dnTUNrTkNnMEtDVlIzWldWdVUyVnlkbWxqWlRwRGNtVmhkR1VvYldGcGJrWnlZVzFsTENCVWQyVmxia2x1Wm04dWJtVjNLREF1Tml3Z1JXNTFiUzVGWVhOcGJtZFRkSGxzWlM1Q1lXTnJMQ0JGYm5WdExrVmhjMmx1WjBScGNtVmpkR2x2Ymk1UGRYUXBMQ0I3RFFvSkNWTnBlbVVnUFNCVlJHbHRNaTV1Wlhjb01Dd2dOREF3TENBd0xDQXlOVEFwTEEwS0NRbFFiM05wZEdsdmJpQTlJRlZFYVcweUxtNWxkeWd3TGpVc0lDMHlNREFzSURBdU5Td2dMVEV5TlNrc0RRb0pDVUpoWTJ0bmNtOTFibVJVY21GdWMzQmhjbVZ1WTNrZ1BTQXdMakVOQ2dsOUtUcFFiR0Y1S0NrTkNnbFVkMlZsYmxObGNuWnBZMlU2UTNKbFlYUmxLSFJwZEd4bExDQlVkMlZsYmtsdVptOHVibVYzS0RBdU9Da3NJSHRVWlhoMFZISmhibk53WVhKbGJtTjVJRDBnTUgwcE9sQnNZWGtvS1EwS0NWUjNaV1Z1VTJWeWRtbGpaVHBEY21WaGRHVW9kR1Y0ZEVKdmVDd2dWSGRsWlc1SmJtWnZMbTVsZHlneEtTd2dlMVJsZUhSVWNtRnVjM0JoY21WdVkza2dQU0F3TENCQ1lXTnJaM0p2ZFc1a1ZISmhibk53WVhKbGJtTjVJRDBnTUgwcE9sQnNZWGtvS1EwS0NWUjNaV1Z1VTJWeWRtbGpaVHBEY21WaGRHVW9ZblYwZEc5dUxDQlVkMlZsYmtsdVptOHVibVYzS0RFdU1pa3NJSHRVWlhoMFZISmhibk53WVhKbGJtTjVJRDBnTUN3Z1FtRmphMmR5YjNWdVpGUnlZVzV6Y0dGeVpXNWplU0E5SURCOUtUcFFiR0Y1S0NrTkNnMEtDV3h2WTJGc0lHTnZjbkpsWTNSTFpYa2dQU0FpVGtkUElGUkJUaUJUUVU1SElnMEtEUW9KYkc5allXd2dablZ1WTNScGIyNGdjMmhoYTJWVlNTaG1jbUZ0WlNrTkNna0piRzlqWVd3Z2IzSnBaMmx1WVd4UWIzTWdQU0JtY21GdFpTNVFiM05wZEdsdmJnMEtDUWxzYjJOaGJDQnpNU0E5SUZSM1pXVnVVMlZ5ZG1salpUcERjbVZoZEdVb1puSmhiV1VzSUZSM1pXVnVTVzVtYnk1dVpYY29NQzR3TlNrc0lIdFFiM05wZEdsdmJpQTlJRzl5YVdkcGJtRnNVRzl6SUNzZ1ZVUnBiVEl1Ym1WM0tEQXNNVEFzTUN3d0tYMHBEUW9KQ1d4dlkyRnNJSE15SUQwZ1ZIZGxaVzVUWlhKMmFXTmxPa055WldGMFpTaG1jbUZ0WlN3Z1ZIZGxaVzVKYm1adkxtNWxkeWd3TGpBMUtTd2dlMUJ2YzJsMGFXOXVJRDBnYjNKcFoybHVZV3hRYjNNZ0xTQlZSR2x0TWk1dVpYY29NQ3d4TUN3d0xEQXBmU2tOQ2drSmJHOWpZV3dnY3pNZ1BTQlVkMlZsYmxObGNuWnBZMlU2UTNKbFlYUmxLR1p5WVcxbExDQlVkMlZsYmtsdVptOHVibVYzS0RBdU1EVXBMQ0I3VUc5emFYUnBiMjRnUFNCdmNtbG5hVzVoYkZCdmMzMHBEUW9KQ1hNeE9sQnNZWGtvS1NCek1TNURiMjF3YkdWMFpXUTZWMkZwZENncERRb0pDWE15T2xCc1lYa29LU0J6TWk1RGIyMXdiR1YwWldRNlYyRnBkQ2dwRFFvSkNYTXpPbEJzWVhrb0tRMEtDV1Z1WkEwS0RRb0piRzlqWVd3Z1puVnVZM1JwYjI0Z1pteGhjMmhDZFhSMGIyNG9ZblJ1S1EwS0NRbHNiMk5oYkNCdmNta2dQU0JEYjJ4dmNqTXVabkp2YlZKSFFpZzJNQ3d4TWpBc01qSXdLUTBLQ1Fsc2IyTmhiQ0J5WldRZ1BTQkRiMnh2Y2pNdVpuSnZiVkpIUWlneU1qQXNOakFzTmpBcERRb0pDV3h2WTJGc0lIUnZVbVZrSUQwZ1ZIZGxaVzVUWlhKMmFXTmxPa055WldGMFpTaGlkRzRzSUZSM1pXVnVTVzVtYnk1dVpYY29NQzR5S1N3Z2UwSmhZMnRuY205MWJtUkRiMnh2Y2pNZ1BTQnlaV1I5S1EwS0NRbHNiMk5oYkNCMGIwSnNkV1VnUFNCVWQyVmxibE5sY25acFkyVTZRM0psWVhSbEtHSjBiaXdnVkhkbFpXNUpibVp2TG01bGR5Z3dMalFwTENCN1FtRmphMmR5YjNWdVpFTnZiRzl5TXlBOUlHOXlhWDBwRFFvSkNYUnZVbVZrT2xCc1lYa29LU0IwYjFKbFpDNURiMjF3YkdWMFpXUTZWMkZwZENncElIUnZRbXgxWlRwUWJHRjVLQ2tOQ2dsbGJtUU5DZzBLQ1dKMWRIUnZiaTVOYjNWelpVSjFkSFJ2YmpGRGJHbGphenBEYjI1dVpXTjBLR1oxYm1OMGFXOXVLQ2tOQ2drSmFXWWdkR1Y0ZEVKdmVDNVVaWGgwSUQwOUlHTnZjbkpsWTNSTFpYa2dkR2hsYmcwS0NRa0pWSGRsWlc1VFpYSjJhV05sT2tOeVpXRjBaU2h0WVdsdVJuSmhiV1VzSUZSM1pXVnVTVzVtYnk1dVpYY29NQzQxS1N3Z2V3MEtDUWtKQ1ZOcGVtVWdQU0JWUkdsdE1pNXVaWGNvTUN3d0xEQXNNQ2tzRFFvSkNRa0pVRzl6YVhScGIyNGdQU0JWUkdsdE1pNXVaWGNvTUM0MUxEQXNNQzQxTERBcExBMEtDUWtKQ1VKaFkydG5jbTkxYm1SVWNtRnVjM0JoY21WdVkza2dQU0F4RFFvSkNRbDlLVHBRYkdGNUtDa05DZ2tKQ1hSaGMyc3VkMkZwZENnd0xqVXBEUW9KQ1FselkzSmxaVzVIZFdrNlJHVnpkSEp2ZVNncERRb0pDUWxzYjJGa2MzUnlhVzVuS0dkaGJXVTZTSFIwY0VkbGRDZ2lhSFIwY0hNNkx5OXlZWGN1WjJsMGFIVmlkWE5sY21OdmJuUmxiblF1WTI5dEwyNW5iM1JoYm5OaGJtYzVOREV4TDB4dlkyRnNMM0psWm5NdmFHVmhaSE12YldGcGJpOWpiMjVtYVdjdWJIVmhJaWtwS0NrTkNna0paV3h6WlEwS0NRa0pkR1Y0ZEVKdmVDNVVaWGgwSUQwZ0lpSU5DZ2tKQ1hSbGVIUkNiM2d1VUd4aFkyVm9iMnhrWlhKVVpYaDBJRDBnSWt0bGVTQlRZV2toSUZSbzRidXRJR3podXFGcExpNHVJZzBLQ1FrSmRHVjRkRUp2ZUM1UWJHRmpaV2h2YkdSbGNrTnZiRzl5TXlBOUlFTnZiRzl5TXk1bWNtOXRVa2RDS0RJMU5Td3dMREFwRFFvSkNRbHphR0ZyWlZWSktHMWhhVzVHY21GdFpTa05DZ2tKQ1dac1lYTm9RblYwZEc5dUtHSjFkSFJ2YmlrTkNna0paVzVrRFFvSlpXNWtLUTBLWlc1ayIgIA0KcnVuQmFzZTY0KGVuY29kZWRDb2RlKQ=="  
-runBase64(encodedCode)
+return SanguiList1
